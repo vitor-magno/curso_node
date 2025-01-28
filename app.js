@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
-
+app.use(express.static(__dirname + '/public'));
 const rotaProdutos = require('./routes/produtos');
 const rotaPedidos = require('./routes/pedidos')
 

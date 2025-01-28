@@ -1,6 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('../mysql').pool;
+const multer = require('multer');
+const path = require('path');
+
+const storage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        cb(null, 'uploads/')
+    },
+    filename: function(req, file, cb) {
+        cb(null, file.originalname + '-' + Date.now())
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    cb(null, file.mimetype === 'image/jpeg' || file.mimetype === 'image/png');
+}
+
+const upload = multer({
+    storage: storage, 
+    limits: {fileSize: 1024 * 1024 * 5},
+    fileFilter: fileFilter
+});
+
+
 
 router.get('/', (req, res, next) => {
     mysql.getConnection((error, conn) => {
@@ -82,7 +105,8 @@ router.get('/:id_produto', (req, res, next) => {
 });
 
 
-router.post('/', (req, res, next) => {
+router.post('/', upload.single('produtoImagem'), (req, res, next) => {
+    console.log(req.file);
     const { nome, preco } = req.body;
     mysql.getConnection((error, conn) => {
         if (error) {
@@ -91,11 +115,11 @@ router.post('/', (req, res, next) => {
             });
         }
         conn.query(
-            'INSERT INTO produtos (nome, preco) VALUES (?, ?)',
-            [nome, preco],
+            'INSERT INTO produtos (nome, preco, produtoImagem) VALUES (?, ?, ?)',
+            [nome, preco, req.file.path.replace(/\\/g, '/')], // Normaliza as barras
             (error, result, fields) => {
-                conn.release(); 
-
+                conn.release();
+        
                 if (error) {
                     return res.status(500).send({
                         error: error,
@@ -108,13 +132,14 @@ router.post('/', (req, res, next) => {
                         id_produto: result.insertId,
                         nome: nome,
                         preco: preco,
+                        produtoImagem: req.file.path.replace(/\\/g, '/'), // Garante a consistência no retorno
                         request: {
-                            tipo:'POST',
+                            tipo: 'POST',
                             descricao: 'Insere um produto',
-                            url: 'http://localhost:3000/produtos'
-                        }   
-                    }
-                }
+                            url: 'http://localhost:3000/produtos',
+                        },
+                    },
+                };
                 return res.status(201).send(response);
             }
         );
